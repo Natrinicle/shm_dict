@@ -30,7 +30,7 @@ __author__ = "Nate Bohman"
 __credits__ = ["Nate Bohman"]
 __license__ = "LGPL-3"
 __maintainer__ = "Nate Bohman"
-__email__ = "natrinicle@natrinicle.com"
+__email__ = "natrinicle-shm_dict@natrinicle.com"
 __status__ = "Production"
 
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
