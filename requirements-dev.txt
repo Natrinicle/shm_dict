@@ -1,0 +1,25 @@
+black; python_version >= "3.6"
+check-manifest
+coverage
+docutils
+flake8
+isort
+mock
+pre-commit
+pur
+pygments
+pylint==1.9.4; python_version >= "2.7" and python_version < "3.0"
+pylint; python_version >= "3.4"
+pyOpenSSL
+pytest
+pytest-cov
+pytest-mock
+pytest-runner
+pytest-sugar
+pytest-xdist
+python-language-server[all]
+readme-renderer[md]
+sphinx
+sphinx-automodapi
+tox
+twine

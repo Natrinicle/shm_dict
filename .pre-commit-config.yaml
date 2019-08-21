@@ -1,0 +1,58 @@
+exclude: '^$'
+fail_fast: false
+default_language_version:
+  python: python3.7
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v2.0.0
+  hooks:
+  - id: check-added-large-files
+  - id: check-ast
+    types: [file, python]
+  - id: check-case-conflict
+  - id: check-json
+    types: [file, json]
+  - id: check-merge-conflict
+  - id: check-symlinks
+    types: [symlink]
+  - id: check-yaml
+    args: [--allow-multiple-documents]
+    types: [file, yaml]
+  - id: detect-private-key
+    types: [file, text]
+  - id: end-of-file-fixer
+    types: [file, python]
+  - id: fix-encoding-pragma
+    types: [file, python]
+  - id: requirements-txt-fixer
+    types: [file, text]
+  - id: trailing-whitespace
+    args: [--markdown-linebreak-ext=md]
+    types: [file, text]
+    exclude: ^docs/.*/coverage/.*\.html$
+- repo: https://github.com/pre-commit/mirrors-isort
+  rev: v4.3.4
+  hooks:
+  - id: isort
+    types: [file, python]
+- repo: https://github.com/ambv/black
+  rev: stable
+  hooks:
+  - id: black
+    language_version: python3.7
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v2.0.0
+  hooks:
+  - id: flake8
+    exclude: ^setup.py$
+    types: [file, python]
+- repo: local
+  hooks:
+  - id: check-manifest
+    name: Check Manifest
+    description: Check package manifest against git committed files.
+    always_run: true
+    files: '^$'
+    entry: check-manifest
+    language: python
+    types: [file, plain-text]
