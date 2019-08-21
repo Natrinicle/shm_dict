@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__version__ = "2019.08.21.21.55"
+__version__ = "2019.08.21.23.20"
 __version_info__ = tuple([int(num) for num in __version__.split(".")])
 
 
