@@ -7,7 +7,6 @@ include LICENSE.LESSER
 include pyproject.toml
 include requirements*
 include tox.ini
-include docker/Dockerfile
 include docs/source/conf.py
 include docs/source/coverage/extract_source.py
 include docs/[mM]ake*
@@ -15,5 +14,4 @@ recursive-include . *.gitkeep
 recursive-include docs/source *.rst
 recursive-include tests *.py
 graft docs/source/_static
-graft tests/fixtures
 prune docs/source/api
