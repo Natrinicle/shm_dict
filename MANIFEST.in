@@ -9,6 +9,7 @@ include requirements*
 include tox.ini
 include docs/source/conf.py
 include docs/source/coverage/extract_source.py
+include docs/source/coverage/*.source.html
 include docs/[mM]ake*
 recursive-include . *.gitkeep
 recursive-include docs/source *.rst

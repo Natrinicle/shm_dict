@@ -221,6 +221,8 @@ epub_exclude_files = ["search.html"]
 # name if not the default objects.inv
 intersphinx_mapping = {
     "arrow": ("https://arrow.readthedocs.io/en/latest/", None),
+    "py2": ("https://docs.python.org/2", None),
+    "py3": ("https://docs.python.org/3", None),
     "python": ("https://docs.python.org/3", None),
     "requests": ("http://docs.python-requests.org/en/master/", None),
     "six": ("https://six.readthedocs.io/", None),

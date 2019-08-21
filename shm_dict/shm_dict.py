@@ -19,6 +19,7 @@ import pickle  # nosec
 import sys
 import threading
 
+# Related third party imports (If you used pip/apt/yum to install)
 import posix_ipc
 import six
 
@@ -32,36 +33,32 @@ __maintainer__ = "Nate Bohman"
 __email__ = "natrinicle@natrinicle.com"
 __status__ = "Production"
 
-# Get the current working directory and add it to the sys.path unless it's already in there.
-CWD = os.path.abspath(os.path.dirname(os.path.realpath(__file__)))
-if CWD not in sys.path:
-    sys.path.append(CWD)
-
 logger = logging.getLogger(__name__)  # pylint: disable=invalid-name
 
 
 class SHMDict(MutableMapping):
-    """Python shared memory file descriptor.
-
-    :param name: Name for shared memory and semaphore if volatile
-                 or path to file if persistent.
-    :param persist: True if name is the path to a file and this
-                    shared memory dictionary should be written
-                    out to the file for persistence between runs
-                    and/or processes.
-    :param lock_timeout: Time in seconds before giving up on
-                         acquiring an exclusive lock to the
-                         dictionary.
-    :param auto_unlock: If the lock_timeout is hit, and this
-                        is True, automatically bypass the
-                        lock and use the dictionary anyway.
-    :type name: :class:`str`
-    :type persist: :class:`bool`
-    :type lock_timeout: :class:`int` or :class:`float`
-    :type auto_unlock: :class:`bool`
-    """
+    """Python shared memory dictionary."""
 
     def __init__(self, name, persist=False, lock_timeout=30, auto_unlock=False):
+        """Standard init method.
+
+        :param name: Name for shared memory and semaphore if volatile
+                     or path to file if persistent.
+        :param persist: True if name is the path to a file and this
+                        shared memory dictionary should be written
+                        out to the file for persistence between runs
+                        and/or processes.
+        :param lock_timeout: Time in seconds before giving up on
+                             acquiring an exclusive lock to the
+                             dictionary.
+        :param auto_unlock: If the lock_timeout is hit, and this
+                            is True, automatically bypass the
+                            lock and use the dictionary anyway.
+        :type name: :class:`str`
+        :type persist: :class:`bool`
+        :type lock_timeout: :class:`int` or :class:`float`
+        :type auto_unlock: :class:`bool`
+        """
         self.name = name
         self.persist_file = None
         self.lock_timeout = lock_timeout
