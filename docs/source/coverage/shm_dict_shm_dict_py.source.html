@@ -1,0 +1,307 @@
+<p class="pln" id="t1"><span class="com">#!/usr/bin/env python3</span><span class="strut"> </span></p>
+<p class="pln" id="t2"><span class="com"># -*- coding: utf-8 -*-</span><span class="strut"> </span></p>
+<p class="pln" id="t3"><span class="strut"> </span></p>
+<p class="pln" id="t4"><span class="com"># Standard library imports</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t5"><span class="key">import</span> <span class="nam">base64</span><span class="strut"> </span></p>
+<p class="pln" id="t6"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t7"><span class="key">try</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t8"> <span class="key">from</span> <span class="nam">collections</span><span class="op">.</span><span class="nam">abc</span> <span class="key">import</span> <span class="nam">MutableMapping</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t9"><span class="key">except</span> <span class="nam">ImportError</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t10"> <span class="key">from</span> <span class="nam">collections</span> <span class="key">import</span> <span class="nam">MutableMapping</span><span class="strut"> </span></p>
+<p class="pln" id="t11"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t12"><span class="key">from</span> <span class="nam">contextlib</span> <span class="key">import</span> <span class="nam">contextmanager</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t13"><span class="key">import</span> <span class="nam">hashlib</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t14"><span class="key">import</span> <span class="nam">logging</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t15"><span class="key">from</span> <span class="nam">math</span> <span class="key">import</span> <span class="nam">ceil</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t16"><span class="key">import</span> <span class="nam">mmap</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t17"><span class="key">import</span> <span class="nam">os</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t18"><span class="key">import</span> <span class="nam">pickle</span> <span class="com"># nosec</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t19"><span class="key">import</span> <span class="nam">sys</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t20"><span class="key">import</span> <span class="nam">threading</span><span class="strut"> </span></p>
+<p class="pln" id="t21"><span class="strut"> </span></p>
+<p class="pln" id="t22"><span class="com"># Related third party imports (If you used pip/apt/yum to install)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t23"><span class="key">import</span> <span class="nam">posix_ipc</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t24"><span class="key">import</span> <span class="nam">six</span><span class="strut"> </span></p>
+<p class="pln" id="t25"><span class="strut"> </span></p>
+<p class="pln" id="t26"><span class="com"># Local application/library specific imports (Look ma! I wrote it myself!)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t27"><span class="key">from</span> <span class="op">.</span><span class="nam">_version</span> <span class="key">import</span> <span class="nam">__version__</span><span class="strut"> </span></p>
+<p class="pln" id="t28"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t29"><span class="nam">__author__</span> <span class="op">=</span> <span class="str">"Nate Bohman"</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t30"><span class="nam">__credits__</span> <span class="op">=</span> <span class="op">[</span><span class="str">"Nate Bohman"</span><span class="op">]</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t31"><span class="nam">__license__</span> <span class="op">=</span> <span class="str">"LGPL-3"</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t32"><span class="nam">__maintainer__</span> <span class="op">=</span> <span class="str">"Nate Bohman"</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t33"><span class="nam">__email__</span> <span class="op">=</span> <span class="str">"natrinicle@natrinicle.com"</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t34"><span class="nam">__status__</span> <span class="op">=</span> <span class="str">"Production"</span><span class="strut"> </span></p>
+<p class="pln" id="t35"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t36"><span class="nam">logger</span> <span class="op">=</span> <span class="nam">logging</span><span class="op">.</span><span class="nam">getLogger</span><span class="op">(</span><span class="nam">__name__</span><span class="op">)</span> <span class="com"># pylint: disable=invalid-name</span><span class="strut"> </span></p>
+<p class="pln" id="t37"><span class="strut"> </span></p>
+<p class="pln" id="t38"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t39"><span class="key">class</span> <span class="nam">SHMDict</span><span class="op">(</span><span class="nam">MutableMapping</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t40"> <span class="str">"""Python shared memory dictionary."""</span><span class="strut"> </span></p>
+<p class="pln" id="t41"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t42"> <span class="key">def</span> <span class="nam">__init__</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">name</span><span class="op">,</span> <span class="nam">persist</span><span class="op">=</span><span class="key">False</span><span class="op">,</span> <span class="nam">lock_timeout</span><span class="op">=</span><span class="num">30</span><span class="op">,</span> <span class="nam">auto_unlock</span><span class="op">=</span><span class="key">False</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t43"> <span class="str">"""Standard init method.</span><span class="strut"> </span></p>
+<p class="pln" id="t44"><span class="strut"> </span></p>
+<p class="pln" id="t45"><span class="str">        :param name: Name for shared memory and semaphore if volatile</span><span class="strut"> </span></p>
+<p class="pln" id="t46"><span class="str">                     or path to file if persistent.</span><span class="strut"> </span></p>
+<p class="pln" id="t47"><span class="str">        :param persist: True if name is the path to a file and this</span><span class="strut"> </span></p>
+<p class="pln" id="t48"><span class="str">                        shared memory dictionary should be written</span><span class="strut"> </span></p>
+<p class="pln" id="t49"><span class="str">                        out to the file for persistence between runs</span><span class="strut"> </span></p>
+<p class="pln" id="t50"><span class="str">                        and/or processes.</span><span class="strut"> </span></p>
+<p class="pln" id="t51"><span class="str">        :param lock_timeout: Time in seconds before giving up on</span><span class="strut"> </span></p>
+<p class="pln" id="t52"><span class="str">                             acquiring an exclusive lock to the</span><span class="strut"> </span></p>
+<p class="pln" id="t53"><span class="str">                             dictionary.</span><span class="strut"> </span></p>
+<p class="pln" id="t54"><span class="str">        :param auto_unlock: If the lock_timeout is hit, and this</span><span class="strut"> </span></p>
+<p class="pln" id="t55"><span class="str">                            is True, automatically bypass the</span><span class="strut"> </span></p>
+<p class="pln" id="t56"><span class="str">                            lock and use the dictionary anyway.</span><span class="strut"> </span></p>
+<p class="pln" id="t57"><span class="str">        :type name: :class:`str`</span><span class="strut"> </span></p>
+<p class="pln" id="t58"><span class="str">        :type persist: :class:`bool`</span><span class="strut"> </span></p>
+<p class="pln" id="t59"><span class="str">        :type lock_timeout: :class:`int` or :class:`float`</span><span class="strut"> </span></p>
+<p class="pln" id="t60"><span class="str">        :type auto_unlock: :class:`bool`</span><span class="strut"> </span></p>
+<p class="pln" id="t61"><span class="str">        """</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t62"> <span class="nam">self</span><span class="op">.</span><span class="nam">name</span> <span class="op">=</span> <span class="nam">name</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t63"> <span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span> <span class="op">=</span> <span class="key">None</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t64"> <span class="nam">self</span><span class="op">.</span><span class="nam">lock_timeout</span> <span class="op">=</span> <span class="nam">lock_timeout</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t65"> <span class="nam">self</span><span class="op">.</span><span class="nam">auto_unlock</span> <span class="op">=</span> <span class="nam">auto_unlock</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t66"> <span class="nam">self</span><span class="op">.</span><span class="nam">_semaphore</span> <span class="op">=</span> <span class="key">None</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t67"> <span class="nam">self</span><span class="op">.</span><span class="nam">_map_file</span> <span class="op">=</span> <span class="key">None</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t68"> <span class="nam">self</span><span class="op">.</span><span class="nam">__thread_local</span> <span class="op">=</span> <span class="nam">threading</span><span class="op">.</span><span class="nam">local</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t69"> <span class="nam">self</span><span class="op">.</span><span class="nam">__thread_local</span><span class="op">.</span><span class="nam">semaphore</span> <span class="op">=</span> <span class="key">False</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t70"> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span> <span class="op">=</span> <span class="key">None</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t71"> <span class="nam">self</span><span class="op">.</span><span class="nam">__dirty</span> <span class="op">=</span> <span class="key">False</span><span class="strut"> </span></p>
+<p class="pln" id="t72"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t73"> <span class="key">if</span> <span class="nam">persist</span> <span class="key">is</span> <span class="key">True</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t74"> <span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span> <span class="op">=</span> <span class="nam">self</span><span class="op">.</span><span class="nam">name</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t75"> <span class="key">if</span> <span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span><span class="op">.</span><span class="nam">startswith</span><span class="op">(</span><span class="str">"~"</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t76"> <span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span> <span class="op">=</span> <span class="nam">os</span><span class="op">.</span><span class="nam">path</span><span class="op">.</span><span class="nam">expanduser</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t77"> <span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span> <span class="op">=</span> <span class="nam">os</span><span class="op">.</span><span class="nam">path</span><span class="op">.</span><span class="nam">abspath</span><span class="op">(</span><span class="nam">os</span><span class="op">.</span><span class="nam">path</span><span class="op">.</span><span class="nam">realpath</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span><span class="op">)</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t78"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t79"> <span class="nam">super</span><span class="op">(</span><span class="nam">SHMDict</span><span class="op">,</span> <span class="nam">self</span><span class="op">)</span><span class="op">.</span><span class="nam">__init__</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t80"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t81"> <span class="key">def</span> <span class="nam">_safe_name</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">prefix</span><span class="op">=</span><span class="str">""</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t82"> <span class="str">"""IPC object safe name creator.</span><span class="strut"> </span></p>
+<p class="pln" id="t83"><span class="strut"> </span></p>
+<p class="pln" id="t84"><span class="str">        Semaphores and Shared Mmeory names allow up to 256 characters (dependong on OS) and must</span><span class="strut"> </span></p>
+<p class="pln" id="t85"><span class="str">        begin with a /.</span><span class="strut"> </span></p>
+<p class="pln" id="t86"><span class="strut"> </span></p>
+<p class="pln" id="t87"><span class="str">        :param prefix: A string to prepend followed by _ and</span><span class="strut"> </span></p>
+<p class="pln" id="t88"><span class="str">                       then the dictionary's name.</span><span class="strut"> </span></p>
+<p class="pln" id="t89"><span class="str">        :type prefix: :class:`str`</span><span class="strut"> </span></p>
+<p class="pln" id="t90"><span class="str">        """</span><span class="strut"> </span></p>
+<p class="pln" id="t91"> <span class="com"># Hash lengths</span><span class="strut"> </span></p>
+<p class="pln" id="t92"> <span class="com"># SHA1: 28</span><span class="strut"> </span></p>
+<p class="pln" id="t93"> <span class="com"># SHA256: 44</span><span class="strut"> </span></p>
+<p class="pln" id="t94"> <span class="com"># SHA512: 88</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t95"> <span class="nam">sha_hash</span> <span class="op">=</span> <span class="nam">hashlib</span><span class="op">.</span><span class="nam">sha512</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t96"> <span class="nam">sha_hash</span><span class="op">.</span><span class="nam">update</span><span class="op">(</span><span class="str">"_"</span><span class="op">.</span><span class="nam">join</span><span class="op">(</span><span class="op">[</span><span class="nam">prefix</span><span class="op">,</span> <span class="nam">str</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">name</span><span class="op">)</span><span class="op">]</span><span class="op">)</span><span class="op">.</span><span class="nam">encode</span><span class="op">(</span><span class="str">"utf-8"</span><span class="op">)</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t97"> <span class="nam">b64_encode</span> <span class="op">=</span> <span class="nam">base64</span><span class="op">.</span><span class="nam">urlsafe_b64encode</span><span class="op">(</span><span class="nam">sha_hash</span><span class="op">.</span><span class="nam">digest</span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t98"> <span class="key">return</span> <span class="str">"/{}"</span><span class="op">.</span><span class="nam">format</span><span class="op">(</span><span class="nam">b64_encode</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t99"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t100"> <span class="op">@</span><span class="nam">property</span><span class="strut"> </span></p>
+<p class="pln" id="t101"> <span class="key">def</span> <span class="nam">safe_sem_name</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t102"> <span class="str">"""Unique semaphore name based on the dictionary name."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t103"> <span class="key">return</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_safe_name</span><span class="op">(</span><span class="str">"sem"</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t104"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t105"> <span class="op">@</span><span class="nam">property</span><span class="strut"> </span></p>
+<p class="pln" id="t106"> <span class="key">def</span> <span class="nam">safe_shm_name</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t107"> <span class="str">"""Unique shared memory segment name based on the dictionary name."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t108"> <span class="key">return</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_safe_name</span><span class="op">(</span><span class="str">"shm"</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t109"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t110"> <span class="op">@</span><span class="nam">property</span><span class="strut"> </span></p>
+<p class="pln" id="t111"> <span class="key">def</span> <span class="nam">semaphore</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t112"> <span class="str">"""Create or return already existing semaphore."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t113"> <span class="key">if</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_semaphore</span> <span class="key">is</span> <span class="key">not</span> <span class="key">None</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t114"> <span class="key">return</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_semaphore</span><span class="strut"> </span></p>
+<p class="pln" id="t115"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t116"> <span class="key">try</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t117"> <span class="nam">self</span><span class="op">.</span><span class="nam">_semaphore</span> <span class="op">=</span> <span class="nam">posix_ipc</span><span class="op">.</span><span class="nam">Semaphore</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">safe_sem_name</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t118"> <span class="key">except</span> <span class="nam">posix_ipc</span><span class="op">.</span><span class="nam">ExistentialError</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t119"> <span class="nam">self</span><span class="op">.</span><span class="nam">_semaphore</span> <span class="op">=</span> <span class="nam">posix_ipc</span><span class="op">.</span><span class="nam">Semaphore</span><span class="op">(</span><span class="strut"> </span></p>
+<p class="pln" id="t120"> <span class="nam">self</span><span class="op">.</span><span class="nam">safe_sem_name</span><span class="op">,</span> <span class="nam">flags</span><span class="op">=</span><span class="nam">posix_ipc</span><span class="op">.</span><span class="nam">O_CREAT</span><span class="op">,</span> <span class="nam">initial_value</span><span class="op">=</span><span class="num">1</span><span class="strut"> </span></p>
+<p class="pln" id="t121"> <span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t122"> <span class="key">return</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_semaphore</span><span class="strut"> </span></p>
+<p class="pln" id="t123"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t124"> <span class="op">@</span><span class="nam">property</span><span class="strut"> </span></p>
+<p class="pln" id="t125"> <span class="key">def</span> <span class="nam">shared_mem</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t126"> <span class="str">"""Create or return already existing shared memory object."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t127"> <span class="key">try</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t128"> <span class="key">return</span> <span class="nam">posix_ipc</span><span class="op">.</span><span class="nam">SharedMemory</span><span class="op">(</span><span class="strut"> </span></p>
+<p class="pln" id="t129"> <span class="nam">self</span><span class="op">.</span><span class="nam">safe_shm_name</span><span class="op">,</span> <span class="nam">size</span><span class="op">=</span><span class="nam">len</span><span class="op">(</span><span class="nam">pickle</span><span class="op">.</span><span class="nam">dumps</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">)</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t130"> <span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t131"> <span class="key">except</span> <span class="nam">posix_ipc</span><span class="op">.</span><span class="nam">ExistentialError</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t132"> <span class="key">return</span> <span class="nam">posix_ipc</span><span class="op">.</span><span class="nam">SharedMemory</span><span class="op">(</span><span class="strut"> </span></p>
+<p class="pln" id="t133"> <span class="nam">self</span><span class="op">.</span><span class="nam">safe_shm_name</span><span class="op">,</span> <span class="nam">flags</span><span class="op">=</span><span class="nam">posix_ipc</span><span class="op">.</span><span class="nam">O_CREX</span><span class="op">,</span> <span class="nam">size</span><span class="op">=</span><span class="nam">posix_ipc</span><span class="op">.</span><span class="nam">PAGE_SIZE</span><span class="strut"> </span></p>
+<p class="pln" id="t134"> <span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t135"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t136"> <span class="op">@</span><span class="nam">property</span><span class="strut"> </span></p>
+<p class="pln" id="t137"> <span class="key">def</span> <span class="nam">map_file</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t138"> <span class="str">"""Create or return mmap file resizing if necessary."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t139"> <span class="key">if</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_map_file</span> <span class="key">is</span> <span class="key">None</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t140"> <span class="nam">self</span><span class="op">.</span><span class="nam">_map_file</span> <span class="op">=</span> <span class="nam">mmap</span><span class="op">.</span><span class="nam">mmap</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">shared_mem</span><span class="op">.</span><span class="nam">fd</span><span class="op">,</span> <span class="nam">self</span><span class="op">.</span><span class="nam">shared_mem</span><span class="op">.</span><span class="nam">size</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t141"> <span class="nam">self</span><span class="op">.</span><span class="nam">shared_mem</span><span class="op">.</span><span class="nam">close_fd</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t142"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t143"> <span class="nam">self</span><span class="op">.</span><span class="nam">_map_file</span><span class="op">.</span><span class="nam">resize</span><span class="op">(</span><span class="strut"> </span></p>
+<p class="pln" id="t144"> <span class="nam">int</span><span class="op">(</span><span class="strut"> </span></p>
+<p class="pln" id="t145"> <span class="nam">ceil</span><span class="op">(</span><span class="nam">float</span><span class="op">(</span><span class="nam">len</span><span class="op">(</span><span class="nam">pickle</span><span class="op">.</span><span class="nam">dumps</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">,</span> <span class="num">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="nam">mmap</span><span class="op">.</span><span class="nam">PAGESIZE</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t146"> <span class="op">*</span> <span class="nam">mmap</span><span class="op">.</span><span class="nam">PAGESIZE</span><span class="strut"> </span></p>
+<p class="pln" id="t147"> <span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t148"> <span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t149"> <span class="key">return</span> <span class="nam">self</span><span class="op">.</span><span class="nam">_map_file</span><span class="strut"> </span></p>
+<p class="pln" id="t150"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t151"> <span class="key">def</span> <span class="nam">__load_dict</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t152"> <span class="str">"""Load dictionary from shared memory or file if persistent and memory empty."""</span><span class="strut"> </span></p>
+<p class="pln" id="t153"> <span class="com"># Read in internal data from map_file</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t154"> <span class="nam">self</span><span class="op">.</span><span class="nam">map_file</span><span class="op">.</span><span class="nam">seek</span><span class="op">(</span><span class="num">0</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t155"> <span class="key">try</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t156"> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span> <span class="op">=</span> <span class="nam">pickle</span><span class="op">.</span><span class="nam">load</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">map_file</span><span class="op">)</span> <span class="com"># nosec</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t157"> <span class="key">except</span> <span class="op">(</span><span class="nam">KeyError</span><span class="op">,</span> <span class="nam">pickle</span><span class="op">.</span><span class="nam">UnpicklingError</span><span class="op">,</span> <span class="nam">EOFError</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t158"> <span class="com"># Curtis Pullen found that Python 3.4 throws EOFError</span><span class="strut"> </span></p>
+<p class="pln" id="t159"> <span class="com"># instead of UnpicklingError that Python 3.6 throws</span><span class="strut"> </span></p>
+<p class="pln" id="t160"> <span class="com"># when attempting to unpickle an empty file.</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t161"> <span class="key">pass</span><span class="strut"> </span></p>
+<p class="pln" id="t162"><span class="strut"> </span></p>
+<p class="pln" id="t163"> <span class="com"># If map_file is empty and persist_file is true, treat</span><span class="strut"> </span></p>
+<p class="pln" id="t164"> <span class="com"># self.name as filename and attempt to load from disk.</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t165"> <span class="key">if</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span> <span class="key">is</span> <span class="key">None</span> <span class="key">and</span> <span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span> <span class="key">is</span> <span class="key">not</span> <span class="key">None</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t166"> <span class="key">try</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t167"> <span class="key">with</span> <span class="nam">open</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span><span class="op">,</span> <span class="str">"rb"</span><span class="op">)</span> <span class="key">as</span> <span class="nam">pfile</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t168"> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span> <span class="op">=</span> <span class="nam">pickle</span><span class="op">.</span><span class="nam">load</span><span class="op">(</span><span class="nam">pfile</span><span class="op">)</span> <span class="com"># nosec</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t169"> <span class="key">except</span> <span class="nam">IOError</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t170"> <span class="key">pass</span><span class="strut"> </span></p>
+<p class="pln" id="t171"><span class="strut"> </span></p>
+<p class="pln" id="t172"> <span class="com"># If map_file is empty, persist_file is False or</span><span class="strut"> </span></p>
+<p class="pln" id="t173"> <span class="com"># self.name is empty create a new empty dictionary.</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t174"> <span class="key">if</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span> <span class="key">is</span> <span class="key">None</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t175"> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span> <span class="op">=</span> <span class="op">{</span><span class="op">}</span><span class="strut"> </span></p>
+<p class="pln" id="t176"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t177"> <span class="key">def</span> <span class="nam">__save_dict</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t178"> <span class="str">"""Save dictionary into shared memory and file if persistent."""</span><span class="strut"> </span></p>
+<p class="pln" id="t179"> <span class="com"># Write out internal dict to map_file</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t180"> <span class="key">if</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__dirty</span> <span class="key">is</span> <span class="key">True</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t181"> <span class="nam">self</span><span class="op">.</span><span class="nam">map_file</span><span class="op">.</span><span class="nam">seek</span><span class="op">(</span><span class="num">0</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t182"> <span class="nam">pickle</span><span class="op">.</span><span class="nam">dump</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">,</span> <span class="nam">self</span><span class="op">.</span><span class="nam">map_file</span><span class="op">,</span> <span class="num">2</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t183"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t184"> <span class="key">if</span> <span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span> <span class="key">is</span> <span class="key">not</span> <span class="key">None</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t185"> <span class="key">with</span> <span class="nam">open</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">persist_file</span><span class="op">,</span> <span class="str">"wb"</span><span class="op">)</span> <span class="key">as</span> <span class="nam">pfile</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t186"> <span class="nam">pickle</span><span class="op">.</span><span class="nam">dump</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">,</span> <span class="nam">pfile</span><span class="op">,</span> <span class="num">2</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t187"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t188"> <span class="nam">self</span><span class="op">.</span><span class="nam">__dirty</span> <span class="op">=</span> <span class="key">False</span><span class="strut"> </span></p>
+<p class="pln" id="t189"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t190"> <span class="key">def</span> <span class="nam">_acquire_lock</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t191"> <span class="str">"""Acquire an exclusive dict lock.</span><span class="strut"> </span></p>
+<p class="pln" id="t192"><span class="strut"> </span></p>
+<p class="pln" id="t193"><span class="str">        Loads dictionary data from memory or disk (if persistent) to</span><span class="strut"> </span></p>
+<p class="pln" id="t194"><span class="str">        ensure data is up to date when lock is requested.</span><span class="strut"> </span></p>
+<p class="pln" id="t195"><span class="strut"> </span></p>
+<p class="pln" id="t196"><span class="str">        .. warnings also::</span><span class="strut"> </span></p>
+<p class="pln" id="t197"><span class="str">            MacOS has a number of shortcomings with regards to</span><span class="strut"> </span></p>
+<p class="pln" id="t198"><span class="str">            semaphores and shared memory segments, this is one</span><span class="strut"> </span></p>
+<p class="pln" id="t199"><span class="str">            method contains one of them.</span><span class="strut"> </span></p>
+<p class="pln" id="t200"><span class="strut"> </span></p>
+<p class="pln" id="t201"><span class="str">                When the timeout is &gt; 0, the call will wait no longer than</span><span class="strut"> </span></p>
+<p class="pln" id="t202"><span class="str">                timeout seconds before either returning (having acquired</span><span class="strut"> </span></p>
+<p class="pln" id="t203"><span class="str">                the semaphore) or raising a BusyError.</span><span class="strut"> </span></p>
+<p class="pln" id="t204"><span class="str">                On platforms that don't support the sem_timedwait() API,</span><span class="strut"> </span></p>
+<p class="pln" id="t205"><span class="str">                a timeout &gt; 0 is treated as infinite. The call will not</span><span class="strut"> </span></p>
+<p class="pln" id="t206"><span class="str">                return until its wait condition is satisfied.</span><span class="strut"> </span></p>
+<p class="pln" id="t207"><span class="str">                Most platforms provide sem_timedwait(). macOS is a notable</span><span class="strut"> </span></p>
+<p class="pln" id="t208"><span class="str">                exception. The module's Boolean constant</span><span class="strut"> </span></p>
+<p class="pln" id="t209"><span class="str">                SEMAPHORE_TIMEOUT_SUPPORTED is True on platforms that</span><span class="strut"> </span></p>
+<p class="pln" id="t210"><span class="str">                support sem_timedwait().</span><span class="strut"> </span></p>
+<p class="pln" id="t211"><span class="strut"> </span></p>
+<p class="pln" id="t212"><span class="str">                -- http://semanchuk.com/philip/posix_ipc/</span><span class="strut"> </span></p>
+<p class="pln" id="t213"><span class="str">        """</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t214"> <span class="key">if</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__thread_local</span><span class="op">.</span><span class="nam">semaphore</span> <span class="key">is</span> <span class="key">False</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t215"> <span class="key">try</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t216"> <span class="nam">self</span><span class="op">.</span><span class="nam">semaphore</span><span class="op">.</span><span class="nam">acquire</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">lock_timeout</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t217"> <span class="nam">self</span><span class="op">.</span><span class="nam">__thread_local</span><span class="op">.</span><span class="nam">semaphore</span> <span class="op">=</span> <span class="key">True</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t218"> <span class="key">except</span> <span class="nam">posix_ipc</span><span class="op">.</span><span class="nam">BusyError</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t219"> <span class="key">if</span> <span class="nam">self</span><span class="op">.</span><span class="nam">auto_unlock</span> <span class="key">is</span> <span class="key">True</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t220"> <span class="nam">self</span><span class="op">.</span><span class="nam">__thread_local</span><span class="op">.</span><span class="nam">semaphore</span> <span class="op">=</span> <span class="key">True</span><span class="strut"> </span></p>
+<p class="pln" id="t221"> <span class="key">else</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t222"> <span class="nam">six</span><span class="op">.</span><span class="nam">reraise</span><span class="op">(</span><span class="op">*</span><span class="nam">sys</span><span class="op">.</span><span class="nam">exc_info</span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t223"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t224"> <span class="nam">self</span><span class="op">.</span><span class="nam">__load_dict</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t225"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t226"> <span class="key">def</span> <span class="nam">_release_lock</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t227"> <span class="str">"""Release the exclusive semaphore lock."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t228"> <span class="key">if</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__thread_local</span><span class="op">.</span><span class="nam">semaphore</span> <span class="key">is</span> <span class="key">True</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t229"> <span class="nam">self</span><span class="op">.</span><span class="nam">__save_dict</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t230"> <span class="nam">self</span><span class="op">.</span><span class="nam">semaphore</span><span class="op">.</span><span class="nam">release</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t231"> <span class="nam">self</span><span class="op">.</span><span class="nam">__thread_local</span><span class="op">.</span><span class="nam">semaphore</span> <span class="op">=</span> <span class="key">False</span><span class="strut"> </span></p>
+<p class="pln" id="t232"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t233"> <span class="op">@</span><span class="nam">contextmanager</span><span class="strut"> </span></p>
+<p class="pln" id="t234"> <span class="key">def</span> <span class="nam">exclusive_lock</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t235"> <span class="str">"""A context manager for the lock to allow with statements for exclusive access."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t236"> <span class="nam">self</span><span class="op">.</span><span class="nam">_acquire_lock</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t237"> <span class="key">yield</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t238"> <span class="nam">self</span><span class="op">.</span><span class="nam">_release_lock</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t239"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t240"> <span class="key">def</span> <span class="nam">__del__</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t241"> <span class="str">"""Destroy the object nicely."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t242"> <span class="nam">self</span><span class="op">.</span><span class="nam">map_file</span><span class="op">.</span><span class="nam">close</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t243"> <span class="nam">self</span><span class="op">.</span><span class="nam">shared_mem</span><span class="op">.</span><span class="nam">unlink</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t244"> <span class="nam">self</span><span class="op">.</span><span class="nam">semaphore</span><span class="op">.</span><span class="nam">unlink</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t245"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t246"> <span class="key">def</span> <span class="nam">__setitem__</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">key</span><span class="op">,</span> <span class="nam">value</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t247"> <span class="str">"""Set a key in the dictionary to a value."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t248"> <span class="key">with</span> <span class="nam">self</span><span class="op">.</span><span class="nam">exclusive_lock</span><span class="op">(</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t249"> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">[</span><span class="nam">key</span><span class="op">]</span> <span class="op">=</span> <span class="nam">value</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t250"> <span class="nam">self</span><span class="op">.</span><span class="nam">__dirty</span> <span class="op">=</span> <span class="key">True</span><span class="strut"> </span></p>
+<p class="pln" id="t251"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t252"> <span class="key">def</span> <span class="nam">__getitem__</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">key</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t253"> <span class="str">"""Get the value of a key from the dictionary."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t254"> <span class="key">with</span> <span class="nam">self</span><span class="op">.</span><span class="nam">exclusive_lock</span><span class="op">(</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t255"> <span class="key">return</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">[</span><span class="nam">key</span><span class="op">]</span><span class="strut"> </span></p>
+<p class="pln" id="t256"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t257"> <span class="key">def</span> <span class="nam">__repr__</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t258"> <span class="str">"""Represent the dictionary in a human readable format."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t259"> <span class="key">with</span> <span class="nam">self</span><span class="op">.</span><span class="nam">exclusive_lock</span><span class="op">(</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t260"> <span class="key">return</span> <span class="nam">repr</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t261"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t262"> <span class="key">def</span> <span class="nam">__len__</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t263"> <span class="str">"""Return the length of the dictionary."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t264"> <span class="key">with</span> <span class="nam">self</span><span class="op">.</span><span class="nam">exclusive_lock</span><span class="op">(</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t265"> <span class="key">return</span> <span class="nam">len</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t266"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t267"> <span class="key">def</span> <span class="nam">__delitem__</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">key</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t268"> <span class="str">"""Remove an item from the dictionary."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t269"> <span class="key">with</span> <span class="nam">self</span><span class="op">.</span><span class="nam">exclusive_lock</span><span class="op">(</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t270"> <span class="key">del</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">[</span><span class="nam">key</span><span class="op">]</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t271"> <span class="nam">self</span><span class="op">.</span><span class="nam">__dirty</span> <span class="op">=</span> <span class="key">True</span><span class="strut"> </span></p>
+<p class="pln" id="t272"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t273"> <span class="key">def</span> <span class="nam">clear</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t274"> <span class="str">"""Completely clear the dictionary."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t275"> <span class="key">with</span> <span class="nam">self</span><span class="op">.</span><span class="nam">exclusive_lock</span><span class="op">(</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t276"> <span class="nam">self</span><span class="op">.</span><span class="nam">__dirty</span> <span class="op">=</span> <span class="key">True</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t277"> <span class="key">return</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">.</span><span class="nam">clear</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t278"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t279"> <span class="key">def</span> <span class="nam">copy</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t280"> <span class="str">"""Create and return a copy of the internal dictionary."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t281"> <span class="key">with</span> <span class="nam">self</span><span class="op">.</span><span class="nam">exclusive_lock</span><span class="op">(</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t282"> <span class="key">return</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">.</span><span class="nam">copy</span><span class="op">(</span><span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t283"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t284"> <span class="key">def</span> <span class="nam">has_key</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">key</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t285"> <span class="str">"""Return true if a key is in the internal dictionary."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t286"> <span class="key">with</span> <span class="nam">self</span><span class="op">.</span><span class="nam">exclusive_lock</span><span class="op">(</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t287"> <span class="key">return</span> <span class="nam">key</span> <span class="key">in</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="strut"> </span></p>
+<p class="pln" id="t288"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t289"> <span class="key">def</span> <span class="nam">__eq__</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">other</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t290"> <span class="str">"""Shared memory dictionary equality check with another shared memory dictionary."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t291"> <span class="key">return</span> <span class="nam">isinstance</span><span class="op">(</span><span class="nam">other</span><span class="op">,</span> <span class="nam">SHMDict</span><span class="op">)</span> <span class="key">and</span> <span class="nam">self</span><span class="op">.</span><span class="nam">safe_shm_name</span> <span class="op">==</span> <span class="nam">other</span><span class="op">.</span><span class="nam">safe_shm_name</span><span class="strut"> </span></p>
+<p class="pln" id="t292"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t293"> <span class="key">def</span> <span class="nam">__ne__</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">other</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t294"> <span class="str">"""Shared memory dictionary non-equality check with another shared memory dictionary."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t295"> <span class="key">return</span> <span class="key">not</span> <span class="nam">isinstance</span><span class="op">(</span><span class="nam">other</span><span class="op">,</span> <span class="nam">SHMDict</span><span class="op">)</span> <span class="key">or</span> <span class="op">(</span><span class="strut"> </span></p>
+<p class="pln" id="t296"> <span class="nam">isinstance</span><span class="op">(</span><span class="nam">other</span><span class="op">,</span> <span class="nam">SHMDict</span><span class="op">)</span> <span class="key">and</span> <span class="nam">self</span><span class="op">.</span><span class="nam">safe_shm_name</span> <span class="op">!=</span> <span class="nam">other</span><span class="op">.</span><span class="nam">safe_shm_name</span><span class="strut"> </span></p>
+<p class="pln" id="t297"> <span class="op">)</span><span class="strut"> </span></p>
+<p class="pln" id="t298"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t299"> <span class="key">def</span> <span class="nam">__contains__</span><span class="op">(</span><span class="nam">self</span><span class="op">,</span> <span class="nam">key</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t300"> <span class="str">"""Check if a key exists inside the dictionary."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t301"> <span class="key">with</span> <span class="nam">self</span><span class="op">.</span><span class="nam">exclusive_lock</span><span class="op">(</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t302"> <span class="key">return</span> <span class="nam">key</span> <span class="key">in</span> <span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="strut"> </span></p>
+<p class="pln" id="t303"><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t304"> <span class="key">def</span> <span class="nam">__iter__</span><span class="op">(</span><span class="nam">self</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="pln" id="t305"> <span class="str">"""Iterate through the dictionary keys."""</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t306"> <span class="key">with</span> <span class="nam">self</span><span class="op">.</span><span class="nam">exclusive_lock</span><span class="op">(</span><span class="op">)</span><span class="op">:</span><span class="strut"> </span></p>
+<p class="stm run hide_run" id="t307"> <span class="key">return</span> <span class="nam">iter</span><span class="op">(</span><span class="nam">self</span><span class="op">.</span><span class="nam">__internal_dict</span><span class="op">)</span><span class="strut"> </span></p>

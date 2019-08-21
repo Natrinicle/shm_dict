@@ -101,6 +101,7 @@ htmlcov/
 .coverage.*
 docs/source/coverage/*
 !docs/source/coverage/extract_source.py
+!docs/source/coverage/*.source.html
 docs/source/api/*
 .cache
 nosetests.xml
