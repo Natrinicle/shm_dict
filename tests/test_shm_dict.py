@@ -6,9 +6,11 @@ try:
 except ImportError:
     from collections import MutableMapping
 
+from math import ceil
 import mmap
 import mock
 import os
+import pickle
 from random import SystemRandom
 import re
 from string import ascii_letters as str_ascii_letters, digits as str_digits
@@ -274,6 +276,58 @@ class TestSHMDict(object):
         # Add 1 key to the dict and make sure dict has 1 key
         self.vol_shm_dict[dict_key] = rand_string(10)
         assert len(self.vol_shm_dict) == 1
+
+    def test_large_dict(self, dict_key):
+        test_rand_string_short = rand_string(10)
+        test_rand_string_medium = rand_string(mmap.PAGESIZE * 2)
+        test_rand_string_long = rand_string(mmap.PAGESIZE * 4)
+        self.create_vol_shm_dict()
+
+        # Test short, medium, and long size storage
+        self.vol_shm_dict[dict_key] = test_rand_string_short
+        assert self.vol_shm_dict[dict_key] == test_rand_string_short
+        assert self.vol_shm_dict.map_file.size() == int(
+            ceil(float(len(pickle.dumps(self.vol_shm_dict.copy(), 2))) / mmap.PAGESIZE)
+            * mmap.PAGESIZE
+        )
+
+        self.vol_shm_dict[dict_key] = test_rand_string_medium
+        assert self.vol_shm_dict[dict_key] == test_rand_string_medium
+        assert self.vol_shm_dict.map_file.size() == int(
+            ceil(float(len(pickle.dumps(self.vol_shm_dict.copy(), 2))) / mmap.PAGESIZE)
+            * mmap.PAGESIZE
+        )
+
+        self.vol_shm_dict[dict_key] = test_rand_string_long
+        assert self.vol_shm_dict[dict_key] == test_rand_string_long
+        assert self.vol_shm_dict.map_file.size() == int(
+            ceil(float(len(pickle.dumps(self.vol_shm_dict.copy(), 2))) / mmap.PAGESIZE)
+            * mmap.PAGESIZE
+        )
+
+        # Test short + medium and short + medium + long storage
+        # Ensures that dict resizes map_file down first and then back up
+        self.vol_shm_dict[dict_key] = "".join(
+            [test_rand_string_short, test_rand_string_medium]
+        )
+        assert self.vol_shm_dict[dict_key] == "".join(
+            [test_rand_string_short, test_rand_string_medium]
+        )
+        assert self.vol_shm_dict.map_file.size() == int(
+            ceil(float(len(pickle.dumps(self.vol_shm_dict.copy(), 2))) / mmap.PAGESIZE)
+            * mmap.PAGESIZE
+        )
+
+        self.vol_shm_dict[dict_key] = "".join(
+            [test_rand_string_short, test_rand_string_medium, test_rand_string_long]
+        )
+        assert self.vol_shm_dict[dict_key] == "".join(
+            [test_rand_string_short, test_rand_string_medium, test_rand_string_long]
+        )
+        assert self.vol_shm_dict.map_file.size() == int(
+            ceil(float(len(pickle.dumps(self.vol_shm_dict.copy(), 2))) / mmap.PAGESIZE)
+            * mmap.PAGESIZE
+        )
 
     def test_clear(self, dict_key):
         test_rand_string = rand_string(10)
